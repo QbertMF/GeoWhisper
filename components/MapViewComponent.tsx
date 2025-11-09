@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
+import MapView, { Circle, Marker } from 'react-native-maps';
 import type { PointOfInterest } from '../contexts/AppContextWithPersistence';
 import { useAppContext } from '../contexts/AppContextWithPersistence';
 

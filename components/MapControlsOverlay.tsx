@@ -1,6 +1,7 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppIcons } from '../constants/AppIcons';
 import { useAppContext } from '../contexts/AppContextWithPersistence';
 
 interface MapControlsOverlayProps {
@@ -38,11 +39,11 @@ export default function MapControlsOverlay({
   const getMapTypeIcon = () => {
     switch (state.settings.defaultMapType) {
       case 'satellite':
-        return 'globe';
+        return AppIcons.globeOutline;
       case 'hybrid':
-        return 'map';
+        return AppIcons.layersOutline;
       default:
-        return 'map-o';
+        return AppIcons.mapOutline;
     }
   };
 
@@ -70,7 +71,7 @@ export default function MapControlsOverlay({
           onPress={handleMapTypeToggle}
           accessibilityLabel="Toggle map type"
         >
-          <FontAwesome name={getMapTypeIcon()} size={20} color="#007AFF" />
+          <Ionicons name={getMapTypeIcon()} size={20} color="#007AFF" />
         </TouchableOpacity>
 
         {/* Center on User */}
@@ -80,7 +81,7 @@ export default function MapControlsOverlay({
             onPress={onCenterOnUser}
             accessibilityLabel="Center on my location"
           >
-            <FontAwesome name="location-arrow" size={20} color="#007AFF" />
+            <Ionicons name={AppIcons.locate} size={20} color="#007AFF" />
           </TouchableOpacity>
         )}
 
@@ -91,7 +92,7 @@ export default function MapControlsOverlay({
             onPress={() => handleRadiusChange(false)}
             accessibilityLabel="Decrease search radius"
           >
-            <FontAwesome name="minus" size={14} color="#007AFF" />
+            <Ionicons name={AppIcons.remove} size={16} color="#007AFF" />
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -99,7 +100,7 @@ export default function MapControlsOverlay({
             onPress={() => handleRadiusChange(true)}
             accessibilityLabel="Increase search radius"
           >
-            <FontAwesome name="plus" size={14} color="#007AFF" />
+            <Ionicons name={AppIcons.add} size={16} color="#007AFF" />
           </TouchableOpacity>
         </View>
       </View>
