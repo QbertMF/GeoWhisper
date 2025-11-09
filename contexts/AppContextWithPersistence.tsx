@@ -79,7 +79,7 @@ type AppAction =
 // Initial state
 const initialState: AppState = {
   settings: {
-    searchRadius: 1000, // meters
+    searchRadius: 10000, // meters (10km)
     defaultMapType: 'standard',
     enableNotifications: true,
     autoSaveChanges: true,

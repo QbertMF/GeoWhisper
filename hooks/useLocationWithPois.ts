@@ -32,10 +32,7 @@ export function useLocationWithPois() {
       return;
     }
 
-    console.log('🚀 STARTING POI FETCH');
-    console.log(`📍 Location: ${location.latitude}, ${location.longitude}`);
-    console.log(`🔍 Search radius: ${state.settings.searchRadius}m`);
-    console.log(`📋 Categories: ${state.settings.poiCategories.join(', ')}`);
+    console.log(`🚀 Starting POI fetch at ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)} (${state.settings.searchRadius}m)`);
 
     setLocationState(prev => ({ ...prev, isFetchingPois: true }));
 
@@ -64,16 +61,14 @@ export function useLocationWithPois() {
 
   // Handle location update
   const handleLocationUpdate = (newLocation: AppLocation) => {
-    console.log(`📍 LOCATION UPDATE: ${newLocation.latitude}, ${newLocation.longitude}`);
     updateLocation(newLocation);
     setLocationState(prev => ({ ...prev, location: newLocation, error: null }));
 
     // Check if we should fetch POIs
     const shouldFetch = shouldFetchPois(newLocation);
-    console.log(`🤔 Should fetch POIs? ${shouldFetch ? 'YES - significant movement detected' : 'NO - within threshold'}`);
     
     if (shouldFetch) {
-      console.log('🎯 TRIGGERING POI FETCH due to location change');
+      console.log(`🎯 Location changed significantly - triggering POI fetch`);
       fetchPoisForLocation(newLocation);
     }
   };

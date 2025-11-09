@@ -38,12 +38,22 @@ export interface FetchPoisOptions {
 
 // Convert GeoAPIfy place to our POI format
 function convertGeoApifyToPoi(place: GeoApifyPlace): PointOfInterest {
+  // Get the supported categories
+  const supportedCategories = Object.values(API_CONFIG.GEOAPIFY.CATEGORIES);
+  
+  // Find a matching category from the place's categories
+  const matchingCategory = place.properties.categories.find(cat => 
+    supportedCategories.some(supported => 
+      cat === supported || cat.startsWith(supported + '.')
+    )
+  );
+  
   return {
     id: `geoapify_${place.place_id}`,
     name: place.properties.name || place.properties.formatted || 'Unnamed Place',
     latitude: place.geometry.coordinates[1],
     longitude: place.geometry.coordinates[0],
-    category: place.properties.categories[0] || 'unknown',
+    category: matchingCategory || place.properties.categories[0] || 'unknown',
     isVisible: true,
     createdAt: new Date().toISOString(),
     source: 'geoapify',
@@ -83,15 +93,14 @@ export class GeoApifyService {
       // Fetch POIs for each category (GeoAPIfy works better with single categories)
       const allPois: PointOfInterest[] = [];
       
-      console.log(`🔍 Starting POI fetch for location: ${latitude}, ${longitude} (radius: ${radius}m)`);
-      console.log(`📦 Categories to fetch: ${categories.join(', ')}`);
+      console.log(`🔍 Fetching POIs: ${latitude.toFixed(4)}, ${longitude.toFixed(4)} (${radius}m) - ${categories.join(', ')}`);
       
       for (const category of categories) {
         try {
           const url = buildGeoApifyUrl(category, bounds, Math.min(limit, 20)); // Limit per category
           
-          console.log(`🌐 Fetching POIs for category: ${category}`);
-          console.log(`🔗 API URL: ${url}`);
+          // console.log(`🌐 Fetching POIs for category: ${category}`);
+          // console.log(`🔗 API URL: ${url}`);
           
           const response = await fetch(url, {
             method: 'GET',
@@ -106,19 +115,47 @@ export class GeoApifyService {
 
           const data: GeoApifyResponse = await response.json();
           
-          console.log(`📋 Raw API Response for ${category}:`, JSON.stringify(data, null, 2));
+          //console.log(`📋 Raw API Response for ${category}:`, JSON.stringify(data, null, 2));
           
           if (data.features && Array.isArray(data.features)) {
-            const poisForCategory = data.features.map(convertGeoApifyToPoi);
-            console.log(`✅ Found ${data.features.length} POIs for category ${category}:`);
+            // Filter and convert POIs, only keeping those with supported categories
+            const supportedCategories = Object.values(API_CONFIG.GEOAPIFY.CATEGORIES);
             
-            // Print each POI found
-            poisForCategory.forEach((poi, index) => {
-              console.log(`  ${index + 1}. ${poi.name} (${poi.category})`);
-              console.log(`     📍 Location: ${poi.latitude}, ${poi.longitude}`);
-              if (poi.address) console.log(`     🏠 Address: ${poi.address}`);
-              console.log(`     🆔 ID: ${poi.id}`);
+            const filteredFeatures = data.features.filter(place => {
+              return place.properties.categories.some(cat => 
+                supportedCategories.some(supported => 
+                  cat === supported || cat.startsWith(supported + '.')
+                )
+              );
             });
+            
+            const poisForCategory = filteredFeatures.map(convertGeoApifyToPoi);
+            
+            console.log(`✅ Found ${data.features.length} total POIs, ${filteredFeatures.length} matching our categories for ${category}`);
+            
+            // Print each POI found - COMMENTED OUT TO REDUCE CONSOLE CLUTTER
+            // poisForCategory.forEach((poi, index) => {
+            //   console.log(`  ${index + 1}. ${poi.name} (${poi.category})`);
+            //   console.log(`     📍 Location: ${poi.latitude}, ${poi.longitude}`);
+            //   if (poi.address) console.log(`     🏠 Address: ${poi.address}`);
+            //   console.log(`     🆔 ID: ${poi.id}`);
+            // });
+            
+            // Log filtered out POIs for debugging - COMMENTED OUT TO REDUCE CONSOLE CLUTTER
+            // const excludedFeatures = data.features.filter(place => 
+            //   !place.properties.categories.some(cat => 
+            //     supportedCategories.some(supported => 
+            //       cat === supported || cat.startsWith(supported + '.')
+            //     )
+            //   )
+            // );
+            // 
+            // if (excludedFeatures.length > 0) {
+            //   console.log(`🚫 Excluded ${excludedFeatures.length} POIs with unsupported categories:`);
+            //   excludedFeatures.forEach((place, index) => {
+            //     console.log(`  ${index + 1}. ${place.properties.name || 'Unnamed'} (${place.properties.categories.join(', ')})`);
+            //   });
+            // }
             
             allPois.push(...poisForCategory);
           } else {
