@@ -1,4 +1,5 @@
 import React, { createContext, ReactNode, useContext, useEffect, useReducer } from 'react';
+import { API_CONFIG } from '../constants/ApiKeys';
 import { StorageService } from '../services/StorageService';
 
 // Utility function to calculate distance between two coordinates (Haversine formula)
@@ -76,6 +77,17 @@ type AppAction =
   | { type: 'CLEAR_FETCHED_POIS' }
   | { type: 'RESET_ALL' };
 
+// Get default categories from ApiKeys to ensure consistency
+const getDefaultCategories = (): string[] => {
+  const categories = Object.values(API_CONFIG.GEOAPIFY.CATEGORIES);
+  // Use a subset of the most common categories as defaults
+  return [
+    API_CONFIG.GEOAPIFY.CATEGORIES.HERITAGE,
+    API_CONFIG.GEOAPIFY.CATEGORIES.TOURISM_ATTRACTION,
+    API_CONFIG.GEOAPIFY.CATEGORIES.MEMORIAL,
+  ];
+};
+
 // Initial state
 const initialState: AppState = {
   settings: {
@@ -84,7 +96,7 @@ const initialState: AppState = {
     enableNotifications: true,
     autoSaveChanges: true,
     poiFetchDistance: 500, // meters - fetch new POIs when moving 500m
-    poiCategories: ['heritage', 'tourism.attraction', 'memorial'],
+    poiCategories: getDefaultCategories(),
   },
   pointsOfInterest: [],
   fetchedPois: [],
@@ -269,10 +281,30 @@ export function AppProvider({ children }: AppProviderProps) {
       ]);
 
       // Ensure settings have all required fields for compatibility
-      const settings: AppSettings = {
+      let mergedSettings: AppSettings = {
         ...initialState.settings,
         ...savedSettings,
       };
+      
+      // Validate and update categories to ensure only supported ones are used
+      const supportedCategories = Object.values(API_CONFIG.GEOAPIFY.CATEGORIES);
+      const validCategories = (mergedSettings.poiCategories || []).filter(cat => 
+        supportedCategories.includes(cat)
+      );
+      
+      // If no valid categories or old categories detected, use defaults
+      const hasOldCategories = (mergedSettings.poiCategories || []).some(cat => 
+        cat.includes('commercial.') || cat.includes('catering.') || cat.includes('healthcare.')
+      );
+      
+      if (validCategories.length === 0 || hasOldCategories) {
+        console.log('🔄 Updating to new supported POI categories');
+        mergedSettings.poiCategories = getDefaultCategories();
+      } else {
+        mergedSettings.poiCategories = validCategories;
+      }
+      
+      const settings = mergedSettings;
       
       // Ensure POIs have required fields for compatibility
       const pointsOfInterest = (savedPois || []).map(poi => ({
