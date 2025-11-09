@@ -1,6 +1,27 @@
 import React, { createContext, ReactNode, useContext, useEffect, useReducer } from 'react';
 import { StorageService } from '../services/StorageService';
 
+// Utility function to calculate distance between two coordinates (Haversine formula)
+function getDistanceBetweenCoordinates(
+  lat1: number, 
+  lon1: number, 
+  lat2: number, 
+  lon2: number
+): number {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI/180;
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // Distance in meters
+}
+
 // Types
 export interface PointOfInterest {
   id: string;
@@ -10,6 +31,9 @@ export interface PointOfInterest {
   category: string;
   isVisible: boolean;
   createdAt: string;
+  source?: 'manual' | 'geoapify'; // Track where POI came from
+  address?: string; // Address from GeoAPIfy
+  placeId?: string; // GeoAPIfy place ID
 }
 
 export interface AppSettings {
@@ -17,11 +41,22 @@ export interface AppSettings {
   defaultMapType: 'standard' | 'satellite' | 'hybrid';
   enableNotifications: boolean;
   autoSaveChanges: boolean;
+  poiFetchDistance: number; // Distance in meters before triggering new POI fetch
+  poiCategories: string[]; // Categories to fetch from GeoAPIfy
+}
+
+export interface Location {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  timestamp: number;
 }
 
 interface AppState {
   settings: AppSettings;
   pointsOfInterest: PointOfInterest[];
+  fetchedPois: PointOfInterest[]; // POIs from GeoAPIfy
+  lastLocation: Location | null;
   isLoading: boolean;
   isInitialized: boolean;
 }
@@ -36,6 +71,9 @@ type AppAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_INITIALIZED'; payload: boolean }
   | { type: 'LOAD_DATA'; payload: { settings: AppSettings; pointsOfInterest: PointOfInterest[] } }
+  | { type: 'SET_FETCHED_POIS'; payload: PointOfInterest[] }
+  | { type: 'UPDATE_LOCATION'; payload: Location }
+  | { type: 'CLEAR_FETCHED_POIS' }
   | { type: 'RESET_ALL' };
 
 // Initial state
@@ -45,8 +83,12 @@ const initialState: AppState = {
     defaultMapType: 'standard',
     enableNotifications: true,
     autoSaveChanges: true,
+    poiFetchDistance: 500, // meters - fetch new POIs when moving 500m
+    poiCategories: ['heritage', 'tourism.attraction', 'memorial'],
   },
   pointsOfInterest: [],
+  fetchedPois: [],
+  lastLocation: null,
   isLoading: false,
   isInitialized: false,
 };
@@ -100,6 +142,21 @@ function appReducer(state: AppState, action: AppAction): AppState {
         pointsOfInterest: action.payload.pointsOfInterest,
         isInitialized: true,
       };
+    case 'SET_FETCHED_POIS':
+      return {
+        ...state,
+        fetchedPois: action.payload,
+      };
+    case 'UPDATE_LOCATION':
+      return {
+        ...state,
+        lastLocation: action.payload,
+      };
+    case 'CLEAR_FETCHED_POIS':
+      return {
+        ...state,
+        fetchedPois: [],
+      };
     case 'RESET_ALL':
       return {
         ...initialState,
@@ -122,6 +179,11 @@ interface AppContextType {
   togglePoiVisibility: (id: string) => Promise<void>;
   getVisiblePois: () => PointOfInterest[];
   getPoisByCategory: (category: string) => PointOfInterest[];
+  getAllPois: () => PointOfInterest[]; // Combines manual + fetched POIs
+  updateLocation: (location: Location) => void;
+  setFetchedPois: (pois: PointOfInterest[]) => void;
+  clearFetchedPois: () => void;
+  shouldFetchPois: (currentLocation: Location) => boolean;
   saveData: () => Promise<void>;
   loadData: () => Promise<void>;
   resetAllData: () => Promise<void>;
@@ -206,7 +268,12 @@ export function AppProvider({ children }: AppProviderProps) {
         StorageService.loadPointsOfInterest(),
       ]);
 
-      const settings = savedSettings || initialState.settings;
+      // Ensure settings have all required fields for compatibility
+      const settings: AppSettings = {
+        ...initialState.settings,
+        ...savedSettings,
+      };
+      
       // Ensure POIs have required fields for compatibility
       const pointsOfInterest = (savedPois || []).map(poi => ({
         ...poi,
@@ -231,6 +298,37 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   };
 
+  // New POI and location functions
+  const getAllPois = (): PointOfInterest[] => {
+    return [...state.pointsOfInterest, ...state.fetchedPois];
+  };
+
+  const updateLocation = (location: Location) => {
+    dispatch({ type: 'UPDATE_LOCATION', payload: location });
+  };
+
+  const setFetchedPois = (pois: PointOfInterest[]) => {
+    dispatch({ type: 'SET_FETCHED_POIS', payload: pois });
+  };
+
+  const clearFetchedPois = () => {
+    dispatch({ type: 'CLEAR_FETCHED_POIS' });
+  };
+
+  const shouldFetchPois = (currentLocation: Location): boolean => {
+    if (!state.lastLocation) return true;
+    
+    // Calculate distance between current and last location
+    const distance = getDistanceBetweenCoordinates(
+      state.lastLocation.latitude,
+      state.lastLocation.longitude,
+      currentLocation.latitude,
+      currentLocation.longitude
+    );
+    
+    return distance >= state.settings.poiFetchDistance;
+  };
+
   const value: AppContextType = {
     state,
     dispatch,
@@ -241,6 +339,11 @@ export function AppProvider({ children }: AppProviderProps) {
     togglePoiVisibility,
     getVisiblePois,
     getPoisByCategory,
+    getAllPois,
+    updateLocation,
+    setFetchedPois,
+    clearFetchedPois,
+    shouldFetchPois,
     saveData,
     loadData,
     resetAllData,

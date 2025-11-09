@@ -85,8 +85,10 @@ export default function InteractiveMap({ style }: InteractiveMapProps) {
     }
   };
 
-  // Get visible POIs from context
-  const visiblePois = state.pointsOfInterest.filter(poi => poi.isVisible);
+  // Get all visible POIs from context (manual + fetched)
+  const { getAllPois } = useAppContext();
+  const allPois = getAllPois();
+  const visiblePois = allPois.filter(poi => poi.isVisible);
 
   // Calculate initial region
   const getInitialRegion = () => {
@@ -137,19 +139,33 @@ export default function InteractiveMap({ style }: InteractiveMapProps) {
         )}
 
         {/* POI Markers */}
-        {visiblePois.map((poi) => (
-          <Marker
-            key={poi.id}
-            coordinate={{
-              latitude: poi.latitude,
-              longitude: poi.longitude,
-            }}
-            title={poi.name}
-            description={`Category: ${poi.category}`}
-            onPress={() => handlePoiPress(poi.id)}
-            pinColor={selectedPoi === poi.id ? '#FF6B6B' : '#4ECDC4'}
-          />
-        ))}
+        {visiblePois.map((poi) => {
+          const isSelected = selectedPoi === poi.id;
+          const isFromGeoAPIfy = poi.source === 'geoapify';
+          
+          // Choose pin color based on source and selection
+          let pinColor = '#4ECDC4'; // Default manual POI color
+          if (isFromGeoAPIfy) {
+            pinColor = '#FF9500'; // Orange for GeoAPIfy POIs
+          }
+          if (isSelected) {
+            pinColor = '#FF6B6B'; // Red when selected
+          }
+
+          return (
+            <Marker
+              key={poi.id}
+              coordinate={{
+                latitude: poi.latitude,
+                longitude: poi.longitude,
+              }}
+              title={poi.name}
+              description={`${poi.category}${poi.address ? `\n${poi.address}` : ''}${isFromGeoAPIfy ? '\n📍 From GeoAPIfy' : '\n✋ Manual'}`}
+              onPress={() => handlePoiPress(poi.id)}
+              pinColor={pinColor}
+            />
+          );
+        })}
       </MapView>
       
       {/* Controls Overlay */}
