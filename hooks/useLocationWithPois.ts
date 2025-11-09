@@ -24,6 +24,8 @@ export function useLocationWithPois() {
   
   const watchSubscriptionRef = useRef<Location.LocationSubscription | null>(null);
   const isInitializedRef = useRef(false);
+  const fetchTimeoutRef = useRef<number | null>(null);
+  const isFetchingRef = useRef(false);
 
   // Fetch POIs from GeoAPIfy
   const fetchPoisForLocation = async (location: AppLocation) => {
@@ -32,8 +34,15 @@ export function useLocationWithPois() {
       return;
     }
 
+    // Prevent concurrent fetches
+    if (isFetchingRef.current) {
+      console.log('⚠️ POI fetch already in progress, skipping');
+      return;
+    }
+
     console.log(`🚀 Starting POI fetch at ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)} (${state.settings.searchRadius}m)`);
 
+    isFetchingRef.current = true;
     setLocationState(prev => ({ ...prev, isFetchingPois: true }));
 
     try {
@@ -55,6 +64,7 @@ export function useLocationWithPois() {
         error: 'Failed to fetch nearby places'
       }));
     } finally {
+      isFetchingRef.current = false;
       setLocationState(prev => ({ ...prev, isFetchingPois: false }));
     }
   };
@@ -69,7 +79,16 @@ export function useLocationWithPois() {
     
     if (shouldFetch) {
       console.log(`🎯 Location changed significantly - triggering POI fetch`);
-      fetchPoisForLocation(newLocation);
+      
+      // Clear any pending fetch timeout to prevent duplicates
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+      
+      // Debounce the fetch to prevent rapid successive calls
+      fetchTimeoutRef.current = setTimeout(() => {
+        fetchPoisForLocation(newLocation);
+      }, 1000); // 1 second debounce
     }
   };
 

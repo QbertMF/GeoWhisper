@@ -48,8 +48,11 @@ function convertGeoApifyToPoi(place: GeoApifyPlace): PointOfInterest {
     )
   );
   
+  // Use properties.place_id as it's more reliable
+  const placeId = place.properties.place_id || place.place_id || `fallback_${Date.now()}_${Math.random()}`;
+  
   return {
-    id: `geoapify_${place.place_id}`,
+    id: `geoapify_${placeId}`,
     name: place.properties.name || place.properties.formatted || 'Unnamed Place',
     latitude: place.geometry.coordinates[1],
     longitude: place.geometry.coordinates[0],
@@ -58,7 +61,7 @@ function convertGeoApifyToPoi(place: GeoApifyPlace): PointOfInterest {
     createdAt: new Date().toISOString(),
     source: 'geoapify',
     address: place.properties.formatted,
-    placeId: place.place_id,
+    placeId: placeId,
   };
 }
 
@@ -170,12 +173,19 @@ export class GeoApifyService {
         }
       }
 
+      console.log(`🔍 DEBUG: Total POIs before deduplication: ${allPois.length}`);
+      
+      // Log some POI IDs for debugging
+      if (allPois.length > 0) {
+        console.log(`🔍 DEBUG: Sample POI IDs: ${allPois.slice(0, 3).map(p => p.placeId).join(', ')}`);
+      }
+      
       // Remove duplicates based on place_id
       const uniquePois = allPois.filter((poi, index, self) =>
         index === self.findIndex(p => p.placeId === poi.placeId)
       );
 
-      console.log(`🎯 FINAL RESULTS: Fetched ${uniquePois.length} unique POIs from GeoAPIfy`);
+      console.log(`🎯 FINAL RESULTS: Fetched ${uniquePois.length} unique POIs from GeoAPIfy (${allPois.length} total before dedup)`);
       console.log(`📊 Summary by category:`);
       
       // Group by category for summary
