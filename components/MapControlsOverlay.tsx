@@ -17,9 +17,15 @@ export default function MapControlsOverlay({
 
   const handleRadiusChange = (increase: boolean) => {
     const currentRadius = state.settings.searchRadius;
-    const step = 250; // 250m steps
+    
+    // Use larger steps for larger distances
+    let step = 250; // 250m for small distances
+    if (currentRadius >= 2000) step = 500; // 500m for 2km+
+    if (currentRadius >= 5000) step = 1000; // 1km for 5km+
+    if (currentRadius >= 10000) step = 2500; // 2.5km for 10km+
+    
     const minRadius = 250;
-    const maxRadius = 5000;
+    const maxRadius = 20000; // Allow up to 20km
     
     let newRadius = increase ? currentRadius + step : currentRadius - step;
     newRadius = Math.max(minRadius, Math.min(maxRadius, newRadius));
@@ -53,7 +59,10 @@ export default function MapControlsOverlay({
       <View style={styles.statusOverlay}>
         <View style={styles.statusItem}>
           <Text style={styles.statusText}>
-            📍 {(state.settings.searchRadius / 1000).toFixed(1)}km
+            📍 {state.settings.searchRadius >= 1000 
+              ? `${(state.settings.searchRadius / 1000).toFixed(state.settings.searchRadius >= 10000 ? 0 : 1)}km`
+              : `${state.settings.searchRadius}m`
+            }
           </Text>
         </View>
         <View style={styles.statusItem}>

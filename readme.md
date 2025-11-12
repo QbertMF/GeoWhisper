@@ -1,5 +1,18 @@
 npx expo start
 
+APK Build:
+eas build --platform android --profile preview
+
+eas build --platform android --profile debug
+
+Debug:
+# Connect your phone via USB and run:
+adb logcat | grep -i "geowhisper\|crash\|fatal"
+
+# Or use the debug script I created:
+bash debug-apk.sh
+
+
 
 I would like to build an app that can talks about the environment that the user is in. For axxample the app could be placed in the car. while driving POIs nearby are automatically selected and with text to seech the app explains the POIs. The POS may be places but also historic events in the area. A minimum set of settings I can think of is  the are to be considered in the search. Then perhaps categories  like history, architecture, people, events, etc. The appp shal show the selected and currently played events on a life map. For thos App I would
 

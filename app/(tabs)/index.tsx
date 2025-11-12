@@ -8,6 +8,8 @@ import { useLocationWithPois } from '@/hooks/useLocationWithPois';
 import { usePoiCategories } from '@/hooks/usePoiUtils';
 
 export default function HomeScreen() {
+  console.log('🏠 HomeScreen: Component rendering...');
+  
   const { 
     state, 
     addPointOfInterest, 

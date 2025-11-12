@@ -1,32 +1,26 @@
-import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import MapView, { Circle, Marker } from 'react-native-maps';
 import { useAppContext } from '../contexts/AppContextWithPersistence';
+import { useLocationWithPois } from '../hooks/useLocationWithPois';
 import MapControlsOverlay from './MapControlsOverlay';
 
 interface InteractiveMapProps {
   style?: any;
 }
 
-interface UserLocation {
-  latitude: number;
-  longitude: number;
-}
-
 export default function InteractiveMap({ style }: InteractiveMapProps) {
+  console.log('🗺️ InteractiveMap: Component rendering...');
+  
   const { state } = useAppContext();
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const { location: userLocation, hasPermission } = useLocationWithPois();
+  
+  console.log('🗺️ InteractiveMap: Location available:', !!userLocation, 'Permission:', hasPermission);
   const [selectedPoi, setSelectedPoi] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef<any>(null);
 
-  // Request location permissions and get current location
-  useEffect(() => {
-    requestLocationPermission();
-  }, []);
-
-  // Auto-center map when user location is available
+  // Auto-center map when user location changes and map is ready
   useEffect(() => {
     if (userLocation && mapReady && mapRef.current) {
       mapRef.current.animateToRegion({
@@ -37,33 +31,6 @@ export default function InteractiveMap({ style }: InteractiveMapProps) {
       });
     }
   }, [userLocation, mapReady]);
-
-  const requestLocationPermission = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      
-      if (status !== 'granted') {
-        Alert.alert(
-          'Location Permission',
-          'Location permission is required to show your position on the map',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      // Get current location
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const { latitude, longitude } = location.coords;
-      setUserLocation({ latitude, longitude });
-
-    } catch (error) {
-      console.error('Error getting location:', error);
-      Alert.alert('Location Error', 'Unable to get your current location');
-    }
-  };
 
   const handleMapReady = () => {
     setMapReady(true);
